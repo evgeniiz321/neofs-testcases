@@ -480,7 +480,6 @@ class TestObjectLockWithGrpc(ClusterTestBase):
         ids=["simple object", "complex object"],
     )
     @expect_not_raises()
-    @pytest.mark.skip(reason="https://github.com/nspcc-dev/neofs-testcases/issues/535")
     @pytest.mark.nspcc_dev__neofs_testcases__issue_535
     def test_after_lock_expiration_with_expire_at_user_should_be_able_to_delete_object(
         self,
@@ -508,6 +507,15 @@ class TestObjectLockWithGrpc(ClusterTestBase):
             expire_at=current_epoch + 1,
         )
 
+        with pytest.raises(Exception, match=OBJECT_IS_LOCKED):
+            delete_object(
+                storage_object.wallet_file_path,
+                storage_object.cid,
+                storage_object.oid,
+                self.shell,
+                self.cluster.default_rpc_endpoint,
+            )
+
         self.tick_epochs(2)
 
         with expect_not_raises():
@@ -520,35 +528,43 @@ class TestObjectLockWithGrpc(ClusterTestBase):
             )
 
     @allure.title("Complex object chunks should also be protected from deletion")
-    @pytest.mark.parametrize(
-        # Only complex objects are required for this test
-        "locked_storage_object",
-        [pytest.lazy_fixture("complex_object_size")],
-        indirect=True,
-    )
-    @pytest.mark.skip(reason="https://github.com/nspcc-dev/neofs-testcases/issues/535")
     @pytest.mark.nspcc_dev__neofs_testcases__issue_535
     def test_complex_object_chunks_should_also_be_protected_from_deletion(
         self,
-        locked_storage_object: StorageObjectInfo,
+        user_container: StorageContainer,
+        complex_object_size: int,
     ):
         """
         Complex object chunks should also be protected from deletion
         """
 
-        chunk_object_ids = get_storage_object_chunks(
-            locked_storage_object, self.shell, self.cluster
+        current_epoch = self.ensure_fresh_epoch()
+
+        storage_object = user_container.generate_object(complex_object_size, expire_at=current_epoch + 5)
+
+        lock_object(
+            storage_object.wallet_file_path,
+            storage_object.cid,
+            storage_object.oid,
+            self.shell,
+            endpoint=self.cluster.default_rpc_endpoint,
+            expire_at=current_epoch + 2,
         )
+
+        chunk_object_ids = get_storage_object_chunks(
+            storage_object, self.shell, self.cluster
+        )
+
         for chunk_object_id in chunk_object_ids:
             with allure.step(f"Try to delete chunk object {chunk_object_id}"):
-                with pytest.raises(Exception, match=OBJECT_IS_LOCKED):
-                    delete_object(
-                        locked_storage_object.wallet_file_path,
-                        locked_storage_object.cid,
-                        chunk_object_id,
-                        self.shell,
-                        self.cluster.default_rpc_endpoint,
-                    )
+                # with pytest.raises(Exception, match=OBJECT_IS_LOCKED):
+                delete_object(
+                    storage_object.wallet_file_path,
+                    storage_object.cid,
+                    chunk_object_id,
+                    self.shell,
+                    self.cluster.default_rpc_endpoint,
+                )
 
     @allure.title("Link object of locked complex object can be dropped")
     @pytest.mark.grpc_control
@@ -630,36 +646,43 @@ class TestObjectLockWithGrpc(ClusterTestBase):
                 drop_object(node, new_locked_storage_object.cid, new_locked_storage_object.oid)
 
     @allure.title("Link object of complex object should also be protected from deletion")
-    @pytest.mark.parametrize(
-        # Only complex objects are required for this test
-        "locked_storage_object",
-        [pytest.lazy_fixture("complex_object_size")],
-        indirect=True,
-    )
-    @pytest.mark.skip(reason="https://github.com/nspcc-dev/neofs-testcases/issues/535")
     @pytest.mark.nspcc_dev__neofs_testcases__issue_535
     def test_link_object_of_complex_object_should_also_be_protected_from_deletion(
         self,
-        locked_storage_object: StorageObjectInfo,
+        user_container: StorageContainer,
+        complex_object_size: int,
     ):
         """
         Link object of complex object should also be protected from deletion
         """
 
+        current_epoch = self.ensure_fresh_epoch()
+
+        storage_object = user_container.generate_object(complex_object_size, expire_at=current_epoch + 5)
+
+        lock_object(
+            storage_object.wallet_file_path,
+            storage_object.cid,
+            storage_object.oid,
+            self.shell,
+            endpoint=self.cluster.default_rpc_endpoint,
+            expire_at=current_epoch + 2,
+        )
+
         link_object_id = get_link_object(
-            locked_storage_object.wallet_file_path,
-            locked_storage_object.cid,
-            locked_storage_object.oid,
+            storage_object.wallet_file_path,
+            storage_object.cid,
+            storage_object.oid,
             self.shell,
             self.cluster.storage_nodes,
             is_direct=False,
         )
         with allure.step(f"Try to delete link object {link_object_id}"):
-            with pytest.raises(Exception, match=OBJECT_IS_LOCKED):
-                delete_object(
-                    locked_storage_object.wallet_file_path,
-                    locked_storage_object.cid,
-                    link_object_id,
-                    self.shell,
-                    self.cluster.default_rpc_endpoint,
-                )
+            # with pytest.raises(Exception, match=OBJECT_IS_LOCKED):
+            delete_object(
+                storage_object.wallet_file_path,
+                storage_object.cid,
+                link_object_id,
+                self.shell,
+                self.cluster.default_rpc_endpoint,
+            )

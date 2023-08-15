@@ -412,7 +412,6 @@ class TestS3Gate(TestS3GateBase):
             ), f"Expected all objects {put_objects} in objects list {bucket_objects}"
             try_to_get_objects_and_expect_error(self.s3_client, bucket_2, objects_to_delete_b2)
 
-    @pytest.mark.skip(reason="https://github.com/nspcc-dev/neofs-testcases/issues/535")
     @pytest.mark.nspcc_dev__neofs_testcases__issue_535
     @allure.title("Test S3: Copy object to the same bucket")
     def test_s3_copy_same_bucket(self, bucket, complex_object_size, simple_object_size):
@@ -458,7 +457,6 @@ class TestS3Gate(TestS3GateBase):
             unexpected_objects=[file_name_simple],
         )
 
-    @pytest.mark.skip(reason="https://github.com/nspcc-dev/neofs-testcases/issues/535")
     @pytest.mark.nspcc_dev__neofs_testcases__issue_535
     @allure.title("Test S3: Copy object to another bucket")
     def test_s3_copy_to_another_bucket(self, two_buckets, complex_object_size, simple_object_size):
