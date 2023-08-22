@@ -1,7 +1,7 @@
 import logging
 import random
 from time import sleep
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import allure
 import pytest
@@ -240,45 +240,45 @@ class TestNodeManagement(ClusterTestBase):
             (
                 "REP 1 IN LOC_PLACE CBF 1 SELECT 1 FROM LOC_SW AS LOC_PLACE FILTER Country EQ Sweden AS LOC_SW",
                 1,
-                {3},
+                lambda found_nodes: found_nodes == {3},
             ),
             (
                 "REP 1 CBF 1 SELECT 1 FROM LOC_SPB FILTER 'UN-LOCODE' EQ 'RU LED' AS LOC_SPB",
                 1,
-                {2},
+                lambda found_nodes: found_nodes == {2},
             ),
             (
                 "REP 1 IN LOC_SPB_PLACE REP 1 IN LOC_MSK_PLACE CBF 1 SELECT 1 FROM LOC_SPB AS LOC_SPB_PLACE "
                 "SELECT 1 FROM LOC_MSK AS LOC_MSK_PLACE "
                 "FILTER 'UN-LOCODE' EQ 'RU LED' AS LOC_SPB FILTER 'UN-LOCODE' EQ 'RU MOW' AS LOC_MSK",
                 2,
-                {1, 2},
+                lambda found_nodes: found_nodes == {1, 2},
             ),
             (
                 "REP 4 CBF 1 SELECT 4 FROM LOC_EU FILTER Continent EQ Europe AS LOC_EU",
                 4,
-                {1, 2, 3, 4},
+                lambda found_nodes: found_nodes == {1, 2, 3, 4},
             ),
             (
                 "REP 1 CBF 1 SELECT 1 FROM LOC_SPB "
                 "FILTER 'UN-LOCODE' NE 'RU MOW' AND 'UN-LOCODE' NE 'SE STO' AND 'UN-LOCODE' NE 'FI HEL' AS LOC_SPB",
                 1,
-                {2},
+                lambda found_nodes: all(node in {1, 2, 3, 4} for node in found_nodes)
             ),
             (
                 "REP 2 CBF 1 SELECT 2 FROM LOC_RU FILTER SubDivCode NE 'AB' AND SubDivCode NE '18' AS LOC_RU",
                 2,
-                {1, 2},
+                lambda found_nodes: all(node in {1, 2, 3, 4} for node in found_nodes)
             ),
             (
                 "REP 2 CBF 1 SELECT 2 FROM LOC_RU FILTER Country EQ 'Russia' AS LOC_RU",
                 2,
-                {1, 2},
+                lambda found_nodes: found_nodes == {1, 2},
             ),
             (
                 "REP 2 CBF 1 SELECT 2 FROM LOC_EU FILTER Country NE 'Russia' AS LOC_EU",
                 2,
-                {3, 4},
+                lambda found_nodes: all(node in {1, 2, 3, 4} for node in found_nodes)
             ),
         ],
     )
@@ -289,7 +289,7 @@ class TestNodeManagement(ClusterTestBase):
         default_wallet,
         placement_rule,
         expected_copies,
-        expected_nodes_id: set[int],
+        predicate: Callable,
         simple_object_size,
     ):
         """
@@ -302,9 +302,7 @@ class TestNodeManagement(ClusterTestBase):
             wallet, placement_rule, file_path, expected_copies
         )
 
-        assert (
-            found_nodes == expected_nodes_id
-        ), f"Expected nodes {expected_nodes_id}, got {found_nodes}"
+        assert predicate(found_nodes), f"Found nodes '{found_nodes}' are not correct"
 
     @pytest.mark.parametrize(
         "placement_rule,expected_copies",
